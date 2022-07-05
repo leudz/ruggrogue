@@ -656,7 +656,7 @@ pub fn add_coords_to_players(
     mut coords: ViewMut<Coord>,
     players: View<Player>,
 ) {
-    let player_ids = players.iter().with_id().map(|(id, _)| id);
+    let player_ids = players.iter().ids();
 
     for id in player_ids {
         entities.add_component(id, &mut coords, Coord((0, 0).into()));
@@ -664,7 +664,7 @@ pub fn add_coords_to_players(
 }
 
 pub fn remove_coords_from_players(mut coords: ViewMut<Coord>, players: View<Player>) {
-    let player_ids = players.iter().with_id().map(|(id, _)| id);
+    let player_ids = players.iter().ids();
 
     for id in player_ids {
         coords.remove(id);
