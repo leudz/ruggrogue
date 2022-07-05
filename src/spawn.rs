@@ -4,8 +4,8 @@ use rand::{
 };
 use rand_xoshiro::Xoshiro128PlusPlus as GameRng;
 use shipyard::{
-    AllStoragesViewMut, EntitiesView, EntitiesViewMut, EntityId, Get, IntoIter, IntoWithId,
-    UniqueView, UniqueViewMut, View, ViewMut, World,
+    AllStoragesViewMut, EntitiesView, EntitiesViewMut, EntityId, Get, SparseSet, UniqueView,
+    UniqueViewMut, View, ViewMut, World,
 };
 use std::hash::Hasher;
 use wyhash::WyHash;
@@ -731,15 +731,5 @@ pub fn despawn_entity(all_storages: &mut AllStoragesViewMut, id: EntityId) {
 
 /// Despawn all map-local entites, i.e. all entities with a Coord component.
 pub fn despawn_coord_entities(mut all_storages: AllStoragesViewMut) {
-    let despawn_ids = all_storages
-        .borrow::<View<Coord>>()
-        .unwrap()
-        .iter()
-        .with_id()
-        .map(|(id, _)| id)
-        .collect::<Vec<EntityId>>();
-
-    for id in despawn_ids {
-        despawn_entity(&mut all_storages, id);
-    }
+    all_storages.delete_any::<SparseSet<Coord>>();
 }
