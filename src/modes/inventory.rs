@@ -50,17 +50,18 @@ pub struct InventoryMode {
 /// Show a screen with items carried by the player, and allow them to be manipulated.
 impl InventoryMode {
     pub fn new(world: &World) -> Self {
-        let player_id = world.borrow::<UniqueView<PlayerId>>();
-        let inventories = world.borrow::<View<Inventory>>();
-        let names = world.borrow::<View<Name>>();
-        let player_inventory = inventories.get(player_id.0);
+        let player_id = world.borrow::<UniqueView<PlayerId>>().unwrap();
+        let inventories = world.borrow::<View<Inventory>>().unwrap();
+        let names = world.borrow::<View<Name>>().unwrap();
+        let player_inventory = inventories.get(player_id.0).unwrap();
         let inv_min_width = player_inventory
             .items
             .iter()
-            .map(|it| names.get(*it).0.len() + 2)
+            .map(|it| names.get(*it).unwrap().0.len() + 2)
             .max()
             .unwrap_or(0);
-        let inv_selection = world.borrow::<UniqueView<MenuMemory>>()[MenuMemory::INVENTORY]
+        let inv_selection = world.borrow::<UniqueView<MenuMemory>>().unwrap()
+            [MenuMemory::INVENTORY]
             .min(player_inventory.items.len().saturating_sub(1) as i32);
 
         Self {
@@ -84,7 +85,7 @@ impl InventoryMode {
     ) {
         let Options {
             font, text_zoom, ..
-        } = *world.borrow::<UniqueView<Options>>();
+        } = *world.borrow::<UniqueView<Options>>().unwrap();
         let tileset = &tilesets.get(font as usize).unwrap_or(&tilesets[0]);
 
         // Equip grid on top.
@@ -95,7 +96,7 @@ impl InventoryMode {
         // Inventory grid occupies the majority center bottom-right.
         let inv_len = world.run(
             |player_id: UniqueView<PlayerId>, inventories: View<Inventory>| {
-                inventories.get(player_id.0).items.len() as u32
+                inventories.get(player_id.0).unwrap().items.len() as u32
             },
         );
         let new_inv_size = Size {
@@ -216,11 +217,11 @@ impl InventoryMode {
                         ModeUpdate::Immediate,
                     ),
                     YesNoDialogModeResult::Yes => {
-                        let player_id = world.borrow::<UniqueView<PlayerId>>();
+                        let player_id = world.borrow::<UniqueView<PlayerId>>().unwrap();
                         item::sort_inventory(world, player_id.0);
 
                         // Reset menu memory for inventory-related shortcut menus.
-                        let mut menu_memory = world.borrow::<UniqueViewMut<MenuMemory>>();
+                        let mut menu_memory = world.borrow::<UniqueViewMut<MenuMemory>>().unwrap();
                         menu_memory[MenuMemory::INVENTORY_SHORTCUT_EQUIP] = 0;
                         menu_memory[MenuMemory::INVENTORY_SHORTCUT_USE] = 0;
                         menu_memory[MenuMemory::INVENTORY_SHORTCUT_DROP] = 0;
@@ -242,11 +243,11 @@ impl InventoryMode {
                 ModeUpdate::Immediate,
             )
         } else if let Some(InputEvent::Press(keycode)) = inputs.get_input() {
-            let player_id = world.borrow::<UniqueView<PlayerId>>();
-            let equipments = world.borrow::<View<Equipment>>();
-            let inventories = world.borrow::<View<Inventory>>();
-            let player_equipment = equipments.get(player_id.0);
-            let player_inv = inventories.get(player_id.0);
+            let player_id = world.borrow::<UniqueView<PlayerId>>().unwrap();
+            let equipments = world.borrow::<View<Equipment>>().unwrap();
+            let inventories = world.borrow::<View<Inventory>>().unwrap();
+            let player_equipment = equipments.get(player_id.0).unwrap();
+            let player_inv = inventories.get(player_id.0).unwrap();
             let shift = inputs.get_mods(KeyMods::SHIFT);
 
             match (&self.subsection, gamekey::from_keycode(keycode, shift)) {
@@ -424,7 +425,8 @@ impl InventoryMode {
                 _ => {}
             }
 
-            world.borrow::<UniqueViewMut<MenuMemory>>()[MenuMemory::INVENTORY] = self.inv_selection;
+            world.borrow::<UniqueViewMut<MenuMemory>>().unwrap()[MenuMemory::INVENTORY] =
+                self.inv_selection;
 
             (ModeControl::Stay, ModeUpdate::WaitForEvent)
         } else {
@@ -440,10 +442,12 @@ impl InventoryMode {
         bg: Color,
         selected_bg: Color,
     ) {
-        let equipments = world.borrow::<View<Equipment>>();
-        let names = world.borrow::<View<Name>>();
-        let renderables = world.borrow::<View<Renderable>>();
-        let player_equipment = equipments.get(world.borrow::<UniqueView<PlayerId>>().0);
+        let equipments = world.borrow::<View<Equipment>>().unwrap();
+        let names = world.borrow::<View<Name>>().unwrap();
+        let renderables = world.borrow::<View<Renderable>>().unwrap();
+        let player_equipment = equipments
+            .get(world.borrow::<UniqueView<PlayerId>>().unwrap().0)
+            .unwrap();
         let weapon_bg = if matches!(self.subsection, SubSection::EquipWeapon) {
             selected_bg
         } else {
@@ -461,18 +465,18 @@ impl InventoryMode {
 
         grid.print((2, 2), "Weapon:");
         if let Some(weapon) = player_equipment.weapon {
-            let render = renderables.get(weapon);
+            let render = renderables.get(weapon).unwrap();
             grid.put_sym_color((10, 2), render.sym, render.fg, render.bg);
-            grid.print_color((12, 2), &names.get(weapon).0, true, fg, weapon_bg);
+            grid.print_color((12, 2), &names.get(weapon).unwrap().0, true, fg, weapon_bg);
         } else {
             grid.print_color((10, 2), "-- nothing --", true, fg, weapon_bg);
         }
 
         grid.print((2, 3), "Armor:");
         if let Some(armor) = player_equipment.armor {
-            let render = renderables.get(armor);
+            let render = renderables.get(armor).unwrap();
             grid.put_sym_color((10, 3), render.sym, render.fg, render.bg);
-            grid.print_color((12, 3), &names.get(armor).0, true, fg, armor_bg);
+            grid.print_color((12, 3), &names.get(armor).unwrap().0, true, fg, armor_bg);
         } else {
             grid.print_color((10, 3), "-- nothing --", true, fg, armor_bg);
         }
@@ -508,7 +512,7 @@ impl InventoryMode {
              inventories: View<Inventory>,
              names: View<Name>,
              renderables: View<Renderable>| {
-                let player_inv = inventories.get(player_id.0);
+                let player_inv = inventories.get(player_id.0).unwrap();
                 let item_x = 2;
                 let item_y = 4;
 
@@ -554,7 +558,7 @@ impl InventoryMode {
                         .skip(item_offset as usize)
                         .take(item_height as usize)
                     {
-                        let render = renderables.get(*item_id);
+                        let render = renderables.get(*item_id).unwrap();
 
                         grid.put_sym_color(
                             (item_x, item_y + i as i32 - item_offset),
@@ -565,7 +569,7 @@ impl InventoryMode {
 
                         grid.print_color(
                             (item_x + 2, item_y + i as i32 - item_offset),
-                            &names.get(*item_id).0,
+                            &names.get(*item_id).unwrap().0,
                             true,
                             fg,
                             if matches!(self.subsection, SubSection::Inventory)

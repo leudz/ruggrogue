@@ -86,71 +86,86 @@ fn print_game_seed(game_seed: UniqueView<GameSeed>) {
 }
 
 pub fn new_game_setup(world: &World, new_game_plus: bool) {
-    world.borrow::<UniqueViewMut<MenuMemory>>().reset();
-    world.borrow::<UniqueViewMut<Messages>>().reset();
-    world.borrow::<UniqueViewMut<Map>>().clear();
-    world.borrow::<UniqueViewMut<PlayerAlive>>().0 = true;
+    world.borrow::<UniqueViewMut<MenuMemory>>().unwrap().reset();
+    world.borrow::<UniqueViewMut<Messages>>().unwrap().reset();
+    world.borrow::<UniqueViewMut<Map>>().unwrap().clear();
+    world.borrow::<UniqueViewMut<PlayerAlive>>().unwrap().0 = true;
 
     if new_game_plus {
         // Set base equipment level based on difficulty level at the end of the previous game.
         {
-            let difficulty_id = world.borrow::<UniqueView<Difficulty>>().id;
-            let experiences = world.borrow::<View<Experience>>();
-            let difficulty_exp = experiences.get(difficulty_id);
-            world.borrow::<UniqueViewMut<BaseEquipmentLevel>>().0 += difficulty_exp.level - 1;
+            let difficulty_id = world.borrow::<UniqueView<Difficulty>>().unwrap().id;
+            let experiences = world.borrow::<View<Experience>>().unwrap();
+            let difficulty_exp = experiences.get(difficulty_id).unwrap();
+            world
+                .borrow::<UniqueViewMut<BaseEquipmentLevel>>()
+                .unwrap()
+                .0 += difficulty_exp.level - 1;
         }
 
         // Increment turn count and depth.
-        world.borrow::<UniqueViewMut<TurnCount>>().0 += 1;
-        world.borrow::<UniqueViewMut<Map>>().depth += 1;
+        world.borrow::<UniqueViewMut<TurnCount>>().unwrap().0 += 1;
+        world.borrow::<UniqueViewMut<Map>>().unwrap().depth += 1;
 
-        let player_id = world.borrow::<UniqueView<PlayerId>>().0;
+        let player_id = world.borrow::<UniqueView<PlayerId>>().unwrap().0;
 
         // Restore player to full health.
-        if let Ok(stats) = (&mut world.borrow::<ViewMut<CombatStats>>()).try_get(player_id) {
+        if let Ok(stats) = (&mut world.borrow::<ViewMut<CombatStats>>().unwrap()).get(player_id) {
             stats.hp = stats.max_hp;
         }
 
         // Mark field of view as dirty.
-        if let Ok(fov) = (&mut world.borrow::<ViewMut<FieldOfView>>()).try_get(player_id) {
+        if let Ok(fov) = (&mut world.borrow::<ViewMut<FieldOfView>>().unwrap()).get(player_id) {
             fov.dirty = true;
         }
 
         world
             .borrow::<UniqueViewMut<Messages>>()
+            .unwrap()
             .add("Welcome back to RuggRogue!".into());
     } else {
         world.run(print_game_seed);
 
         // Reset wins and base equipment level.
-        world.borrow::<UniqueViewMut<Wins>>().0 = 0;
-        world.borrow::<UniqueViewMut<BaseEquipmentLevel>>().0 = 0;
+        world.borrow::<UniqueViewMut<Wins>>().unwrap().0 = 0;
+        world
+            .borrow::<UniqueViewMut<BaseEquipmentLevel>>()
+            .unwrap()
+            .0 = 0;
 
         // Reset turn count and depth.
-        world.borrow::<UniqueViewMut<TurnCount>>().0 = 1;
-        world.borrow::<UniqueViewMut<Map>>().depth = 1;
+        world.borrow::<UniqueViewMut<TurnCount>>().unwrap().0 = 1;
+        world.borrow::<UniqueViewMut<Map>>().unwrap().depth = 1;
 
         // Replace the old player with a fresh one.
-        let player_id = world.borrow::<UniqueView<PlayerId>>().0;
-        spawn::despawn_entity(&mut world.borrow::<AllStoragesViewMut>(), player_id);
+        let player_id = world.borrow::<UniqueView<PlayerId>>().unwrap().0;
+        spawn::despawn_entity(
+            &mut world.borrow::<AllStoragesViewMut>().unwrap(),
+            player_id,
+        );
         let new_player_id = world.run(spawn::spawn_player);
-        world.borrow::<UniqueViewMut<PlayerId>>().0 = new_player_id;
+        world.borrow::<UniqueViewMut<PlayerId>>().unwrap().0 = new_player_id;
 
         // Show the hint for the pick up item key.
-        world.borrow::<UniqueViewMut<PickUpHint>>().0 = true;
+        world.borrow::<UniqueViewMut<PickUpHint>>().unwrap().0 = true;
 
         world
             .borrow::<UniqueViewMut<Messages>>()
+            .unwrap()
             .add("Welcome to RuggRogue!".into());
     }
 
     // Replace old difficulty tracker with a fresh one.
     {
-        let difficulty_id = world.borrow::<UniqueView<Difficulty>>().id;
-        spawn::despawn_entity(&mut world.borrow::<AllStoragesViewMut>(), difficulty_id);
+        let difficulty_id = world.borrow::<UniqueView<Difficulty>>().unwrap().id;
+        spawn::despawn_entity(
+            &mut world.borrow::<AllStoragesViewMut>().unwrap(),
+            difficulty_id,
+        );
         let new_difficulty = Difficulty::new(world.run(spawn::spawn_difficulty));
         world
             .borrow::<UniqueViewMut<Difficulty>>()
+            .unwrap()
             .replace(new_difficulty);
     }
 
@@ -172,7 +187,7 @@ pub fn post_game_cleanup(world: &World, reset_seed: bool) {
 
     if reset_seed {
         // Ensure the next game uses a new seed.
-        world.borrow::<UniqueViewMut<GameSeed>>().0 = rand::random();
+        world.borrow::<UniqueViewMut<GameSeed>>().unwrap().0 = rand::random();
     }
 }
 
@@ -230,7 +245,7 @@ impl TitleMode {
     ) {
         let Options {
             font, text_zoom, ..
-        } = *world.borrow::<UniqueView<Options>>();
+        } = *world.borrow::<UniqueView<Options>>().unwrap();
         let tileset = &tilesets.get(font as usize).unwrap_or(&tilesets[0]);
 
         let new_logo_size = Size {
@@ -443,7 +458,10 @@ impl TitleMode {
                                             world.run(print_game_seed);
 
                                             // Don't show pick up key hint to returning players.
-                                            world.borrow::<UniqueViewMut<PickUpHint>>().0 = false;
+                                            world
+                                                .borrow::<UniqueViewMut<PickUpHint>>()
+                                                .unwrap()
+                                                .0 = false;
 
                                             inputs.clear_input();
                                             return (

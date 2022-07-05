@@ -1,8 +1,8 @@
 use sdl2::keyboard::Keycode;
 use serde::{Deserialize, Serialize};
 use shipyard::{
-    EntitiesView, EntityId, Get, IntoIter, Shiperator, UniqueView, UniqueViewMut, View, ViewMut,
-    World,
+    EntitiesView, EntityId, Get, IntoIter, IntoWithId, Remove, Unique, UniqueView, UniqueViewMut,
+    View, ViewMut, World,
 };
 
 use crate::{
@@ -17,10 +17,10 @@ use crate::{
 };
 use ruggrogue::{util::Position, InputBuffer, InputEvent, KeyMods, PathableMap};
 
-#[derive(Deserialize, Serialize)]
+#[derive(Unique, Deserialize, Serialize)]
 pub struct PlayerId(pub EntityId);
 
-#[derive(Deserialize, Serialize)]
+#[derive(Unique, Deserialize, Serialize)]
 pub struct PlayerAlive(pub bool);
 
 #[derive(Clone, Copy, PartialEq)]
@@ -57,11 +57,11 @@ pub enum PlayerInputResult {
 }
 
 pub fn player_is_auto_running(player_id: UniqueView<PlayerId>, players: View<Player>) -> bool {
-    players.get(player_id.0).auto_run.is_some()
+    players.get(player_id.0).unwrap().auto_run.is_some()
 }
 
 pub fn player_stop_auto_run(player_id: UniqueView<PlayerId>, mut players: ViewMut<Player>) {
-    (&mut players).get(player_id.0).auto_run = None;
+    (&mut players).get(player_id.0).unwrap().auto_run = None;
 }
 
 pub fn player_sees_foes(
@@ -71,16 +71,18 @@ pub fn player_sees_foes(
     monsters: View<Monster>,
 ) -> bool {
     fovs.get(player_id.0)
+        .unwrap()
         .iter()
         .any(|(x, y)| map.iter_entities_at(x, y).any(|id| monsters.contains(id)))
 }
 
 pub fn can_see_player(world: &World, who: EntityId) -> bool {
-    let (player_id, coords, fovs) =
-        world.borrow::<(UniqueView<PlayerId>, View<Coord>, View<FieldOfView>)>();
+    let (player_id, coords, fovs) = world
+        .borrow::<(UniqueView<PlayerId>, View<Coord>, View<FieldOfView>)>()
+        .unwrap();
 
-    if let Ok(fov) = fovs.try_get(who) {
-        let player_coord = coords.get(player_id.0);
+    if let Ok(fov) = fovs.get(who) {
+        let player_coord = coords.get(player_id.0).unwrap();
 
         fov.get(player_coord.0.into())
     } else {
@@ -114,7 +116,7 @@ fn player_check_frontier(
     items: View<Item>,
     players: View<Player>,
 ) -> bool {
-    let player = players.get(player_id.0);
+    let player = players.get(player_id.0).unwrap();
     let AutoRun {
         dir: (auto_run_dx, auto_run_dy),
         run_type,
@@ -126,7 +128,7 @@ fn player_check_frontier(
         return false;
     }
 
-    let player_coord = coords.get(player_id.0);
+    let player_coord = coords.get(player_id.0).unwrap();
     let (real_x_from_x, real_x_from_y, real_y_from_x, real_y_from_y) =
         rotate_view(auto_run_dx, auto_run_dy);
     let real_x = |dx, dy| player_coord.0.x + dx * real_x_from_x + dy * real_x_from_y;
@@ -171,7 +173,7 @@ fn player_check_frontier(
 fn auto_run_corridor_check(world: &World, run_dx: i32, run_dy: i32) -> Option<(i32, i32)> {
     let (player_x, player_y): (i32, i32) =
         world.run(|player_id: UniqueView<PlayerId>, coords: View<Coord>| {
-            coords.get(player_id.0).0.into()
+            coords.get(player_id.0).unwrap().0.into()
         });
     let (real_x_from_x, real_x_from_y, real_y_from_x, real_y_from_y) = rotate_view(run_dx, run_dy);
     let real_x = |dx, dy| player_x + dx * real_x_from_x + dy * real_x_from_y;
@@ -200,7 +202,7 @@ fn auto_run_corridor_check(world: &World, run_dx: i32, run_dy: i32) -> Option<(i
     // Check nearby tiles for walls.
     world.run(
         |map: UniqueView<Map>, player_id: UniqueView<PlayerId>, fovs: View<FieldOfView>| {
-            let player_fov = fovs.get(player_id.0);
+            let player_fov = fovs.get(player_id.0).unwrap();
             let check_unknown_or_wall = |dx, dy| {
                 !player_fov.get((real_x(dx, dy), real_y(dx, dy)))
                     || map.wall_or_oob(real_x(dx, dy), real_y(dx, dy))
@@ -374,7 +376,7 @@ fn auto_run_corridor_check(world: &World, run_dx: i32, run_dy: i32) -> Option<(i
 fn auto_run_straight_check(world: &World, run_dx: i32, run_dy: i32) -> Option<AutoRunWallSide> {
     let (player_x, player_y, forward_blocked) = world.run(
         |map: UniqueView<Map>, player_id: UniqueView<PlayerId>, coords: View<Coord>| {
-            let coord = coords.get(player_id.0);
+            let coord = coords.get(player_id.0).unwrap();
             (
                 coord.0.x,
                 coord.0.y,
@@ -475,7 +477,7 @@ fn auto_run_straight_check(world: &World, run_dx: i32, run_dy: i32) -> Option<Au
 /// should continue in, or `None` to stop auto running.
 fn auto_run_next_step(world: &World) -> Option<(i32, i32)> {
     let auto_run = world.run(|player_id: UniqueView<PlayerId>, players: View<Player>| {
-        let player = players.get(player_id.0);
+        let player = players.get(player_id.0).unwrap();
         player
             .auto_run
             .as_ref()
@@ -485,7 +487,7 @@ fn auto_run_next_step(world: &World) -> Option<(i32, i32)> {
     if let Some((run_type, dx, dy)) = auto_run {
         match run_type {
             AutoRunType::RestInPlace => {
-                let player_id = world.borrow::<UniqueView<PlayerId>>();
+                let player_id = world.borrow::<UniqueView<PlayerId>>().unwrap();
 
                 // Rest while player can regenerate hit points.
                 if matches!(
@@ -502,7 +504,7 @@ fn auto_run_next_step(world: &World) -> Option<(i32, i32)> {
                     // Adjust facing to follow the corridor.
                     world.run(
                         |player_id: UniqueView<PlayerId>, mut players: ViewMut<Player>| {
-                            let player = (&mut players).get(player_id.0);
+                            let player = (&mut players).get(player_id.0).unwrap();
                             if let Some(ar) = &mut player.auto_run {
                                 ar.dir = new_dir;
                             }
@@ -584,7 +586,7 @@ pub fn try_move_player(world: &World, dx: i32, dy: i32, start_run: bool) -> Play
             // Start corridor auto run.
             world.run(
                 |player_id: UniqueView<PlayerId>, mut players: ViewMut<Player>| {
-                    (&mut players).get(player_id.0).auto_run = Some(AutoRun {
+                    (&mut players).get(player_id.0).unwrap().auto_run = Some(AutoRun {
                         limit: 200,
                         dir: (dx, dy),
                         run_type: AutoRunType::Corridor,
@@ -595,7 +597,7 @@ pub fn try_move_player(world: &World, dx: i32, dy: i32, start_run: bool) -> Play
             // Start straight auto run.
             world.run(
                 |player_id: UniqueView<PlayerId>, mut players: ViewMut<Player>| {
-                    (&mut players).get(player_id.0).auto_run = Some(AutoRun {
+                    (&mut players).get(player_id.0).unwrap().auto_run = Some(AutoRun {
                         limit: 200,
                         dir: (dx, dy),
                         run_type: AutoRunType::Straight { expect_wall },
@@ -614,9 +616,11 @@ pub fn try_move_player(world: &World, dx: i32, dy: i32, start_run: bool) -> Play
 
 fn wait_player(world: &World, rest_in_place: bool) -> PlayerInputResult {
     let foes_seen = world.run(player_sees_foes);
-    let (player_id, mut players) = world.borrow::<(UniqueView<PlayerId>, ViewMut<Player>)>();
+    let (player_id, mut players) = world
+        .borrow::<(UniqueView<PlayerId>, ViewMut<Player>)>()
+        .unwrap();
     let player_can_regen = hunger::can_regen(world, player_id.0);
-    let mut msgs = world.borrow::<UniqueViewMut<Messages>>();
+    let mut msgs = world.borrow::<UniqueViewMut<Messages>>().unwrap();
 
     if rest_in_place {
         if foes_seen {
@@ -635,7 +639,7 @@ fn wait_player(world: &World, rest_in_place: bool) -> PlayerInputResult {
         // Rest in place if requested.
         if matches!(player_can_regen, CanRegenResult::CanRegen) {
             msgs.add("You tend to your wounds.".into());
-            (&mut players).get(player_id.0).auto_run = Some(AutoRun {
+            (&mut players).get(player_id.0).unwrap().auto_run = Some(AutoRun {
                 limit: 400,
                 dir: (0, 0),
                 run_type: AutoRunType::RestInPlace,
@@ -654,7 +658,7 @@ pub fn add_coords_to_players(
     let player_ids = players.iter().with_id().map(|(id, _)| id);
 
     for id in player_ids {
-        entities.add_component((&mut coords,), (Coord((0, 0).into()),), id);
+        entities.add_component(id, &mut coords, Coord((0, 0).into()));
     }
 }
 
@@ -672,7 +676,7 @@ pub fn player_try_descend(
     player_id: UniqueView<PlayerId>,
     coords: View<Coord>,
 ) -> bool {
-    let player_coord = coords.get(player_id.0);
+    let player_coord = coords.get(player_id.0).unwrap();
 
     if matches!(
         map.get_tile(player_coord.0.x, player_coord.0.y),
@@ -718,7 +722,7 @@ pub fn player_do_descend(world: &World) {
          names: View<Name>| {
             msgs.add(format!(
                 "{} descends to depth {}.",
-                names.get(player_id.0).0,
+                names.get(player_id.0).unwrap().0,
                 map.depth,
             ));
         },
@@ -733,23 +737,24 @@ pub fn player_pick_up_item(world: &World, item_id: EntityId) {
     world.run(|mut msgs: UniqueViewMut<Messages>, names: View<Name>| {
         msgs.add(format!(
             "{} picks up {}.",
-            names.get(player_id).0,
-            names.get(item_id).0
+            names.get(player_id).unwrap().0,
+            names.get(item_id).unwrap().0
         ));
     });
 }
 
 pub fn player_drop_item(world: &World, item_id: EntityId) {
     let player_id = world.run(|player_id: UniqueView<PlayerId>| player_id.0);
-    let player_pos: (i32, i32) = world.run(|coords: View<Coord>| coords.get(player_id).0.into());
+    let player_pos: (i32, i32) =
+        world.run(|coords: View<Coord>| coords.get(player_id).unwrap().0.into());
 
     item::remove_item_from_inventory(world, player_id, item_id);
     item::add_item_to_map(world, item_id, player_pos);
     world.run(|mut msgs: UniqueViewMut<Messages>, names: View<Name>| {
         msgs.add(format!(
             "{} drops {}.",
-            names.get(player_id).0,
-            names.get(item_id).0
+            names.get(player_id).unwrap().0,
+            names.get(item_id).unwrap().0
         ));
     });
 }
@@ -757,38 +762,41 @@ pub fn player_drop_item(world: &World, item_id: EntityId) {
 /// Describe contents of the tile the player is on.
 pub fn describe_player_pos(world: &World) {
     let Position { x, y } = {
-        let player_id = world.borrow::<UniqueView<PlayerId>>();
-        let coords = world.borrow::<View<Coord>>();
-        coords.get(player_id.0).0
+        let player_id = world.borrow::<UniqueView<PlayerId>>().unwrap();
+        let coords = world.borrow::<View<Coord>>().unwrap();
+        coords.get(player_id.0).unwrap().0
     };
-    let map = world.borrow::<UniqueView<Map>>();
+    let map = world.borrow::<UniqueView<Map>>().unwrap();
     let more_than_player = map.iter_entities_at(x, y).nth(1).is_some();
-    let pick_up_hint = world.borrow::<UniqueView<PickUpHint>>().0
+    let pick_up_hint = world.borrow::<UniqueView<PickUpHint>>().unwrap().0
         && map
             .iter_entities_at(x, y)
-            .any(|id| world.borrow::<View<Item>>().contains(id));
+            .any(|id| world.borrow::<View<Item>>().unwrap().contains(id));
     let tile = map.get_tile(x, y);
 
     if more_than_player || !matches!(tile, Tile::Floor | Tile::Wall) {
         let (desc, recalled) = map.describe_pos(world, x, y, false, true, true);
         let downstairs = matches!(tile, Tile::DownStairs) && map.depth == 1;
 
-        world.borrow::<UniqueViewMut<Messages>>().add(format!(
-            "You {} {} here.{}",
-            if recalled { "recall" } else { "see" },
-            desc,
-            match (pick_up_hint, downstairs) {
-                (true, true) => " (Press 'g' to pick up, 'Enter' to descend.)",
-                (true, false) => " (Press 'g' to pick up.)",
-                (false, true) => " (Press 'Enter' to descend.)",
-                _ => "",
-            },
-        ));
+        world
+            .borrow::<UniqueViewMut<Messages>>()
+            .unwrap()
+            .add(format!(
+                "You {} {} here.{}",
+                if recalled { "recall" } else { "see" },
+                desc,
+                match (pick_up_hint, downstairs) {
+                    (true, true) => " (Press 'g' to pick up, 'Enter' to descend.)",
+                    (true, false) => " (Press 'g' to pick up.)",
+                    (false, true) => " (Press 'Enter' to descend.)",
+                    _ => "",
+                },
+            ));
     }
 }
 
 pub fn player_input(world: &World, inputs: &mut InputBuffer) -> PlayerInputResult {
-    let player_id = world.borrow::<UniqueView<PlayerId>>();
+    let player_id = world.borrow::<UniqueView<PlayerId>>().unwrap();
 
     inputs.prepare_input();
 
@@ -800,14 +808,20 @@ pub fn player_input(world: &World, inputs: &mut InputBuffer) -> PlayerInputResul
             let key = gamekey::from_keycode(keycode, shift);
 
             if !matches!(key, GameKey::Unmapped) {
-                world.borrow::<UniqueViewMut<Messages>>().reset_highlight();
+                world
+                    .borrow::<UniqueViewMut<Messages>>()
+                    .unwrap()
+                    .reset_highlight();
             }
 
             match key {
                 GameKey::Cancel => PlayerInputResult::ShowOptionsMenu,
                 _ => {
                     world.run(|mut msgs: UniqueViewMut<Messages>, names: View<Name>| {
-                        msgs.add(format!("{} is sleeping.", names.get(player_id.0).0));
+                        msgs.add(format!(
+                            "{} is sleeping.",
+                            names.get(player_id.0).unwrap().0
+                        ));
                     });
                     item::handle_sleep_turn(world, player_id.0);
                     PlayerInputResult::TurnDone
@@ -828,7 +842,7 @@ pub fn player_input(world: &World, inputs: &mut InputBuffer) -> PlayerInputResul
             PlayerInputResult::NoResult
         } else {
             let limit_reached = world.run(|mut players: ViewMut<Player>| {
-                let player = (&mut players).get(player_id.0);
+                let player = (&mut players).get(player_id.0).unwrap();
                 if let Some(auto_run) = &mut player.auto_run {
                     if auto_run.limit > 0 {
                         auto_run.limit -= 1;
@@ -861,7 +875,10 @@ pub fn player_input(world: &World, inputs: &mut InputBuffer) -> PlayerInputResul
         let key = gamekey::from_keycode(keycode, shift);
 
         if !matches!(key, GameKey::Unmapped) {
-            world.borrow::<UniqueViewMut<Messages>>().reset_highlight();
+            world
+                .borrow::<UniqueViewMut<Messages>>()
+                .unwrap()
+                .reset_highlight();
         }
 
         match key {

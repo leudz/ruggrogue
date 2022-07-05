@@ -1,6 +1,8 @@
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use shipyard::{EntityId, Get, IntoIter, Shiperator, UniqueView, UniqueViewMut, View, ViewMut};
+use shipyard::{
+    EntityId, Get, IntoIter, IntoWithId, Unique, UniqueView, UniqueViewMut, View, ViewMut,
+};
 
 use crate::{
     components::{CombatStats, Experience, GivesExperience, Monster, Name, Player},
@@ -11,7 +13,7 @@ use crate::{
 /// Tracking state that counts total amount of experience points that could be gained at the time
 /// of entering a new dungeon depth, used to determine the approximate level that monsters and
 /// items on the current dungeon floor should be based around.
-#[derive(Deserialize, Serialize)]
+#[derive(Unique, Deserialize, Serialize)]
 pub struct Difficulty {
     pub id: EntityId,
     exp_for_next_depth: u64,
@@ -37,14 +39,14 @@ impl Difficulty {
 
     /// Get the level tracked by difficulty with a fractional part based on experience.
     pub fn as_f32(&self, exps: &View<Experience>) -> f32 {
-        let difficulty_exp = exps.get(self.id);
+        let difficulty_exp = exps.get(self.id).unwrap();
         difficulty_exp.level as f32 + difficulty_exp.exp as f32 / difficulty_exp.next as f32
     }
 
     /// Get the level tracked by difficulty, with a random chance of being the next level up based
     /// on experience progress.
     pub fn get_round_random<R: Rng>(&self, exps: &View<Experience>, rng: &mut R) -> i32 {
-        let difficulty_exp = exps.get(self.id);
+        let difficulty_exp = exps.get(self.id).unwrap();
 
         if difficulty_exp.next > 0 && rng.gen_range(0u64..difficulty_exp.next) < difficulty_exp.exp
         {
@@ -87,7 +89,7 @@ pub fn redeem_exp_for_next_depth(
     mut difficulty: UniqueViewMut<Difficulty>,
     mut exps: ViewMut<Experience>,
 ) {
-    let difficulty_exp = (&mut exps).get(difficulty.id);
+    let difficulty_exp = (&mut exps).get(difficulty.id).unwrap();
 
     difficulty_exp.exp += difficulty.exp_for_next_depth;
     difficulty.exp_for_next_depth = 0;
@@ -150,7 +152,7 @@ pub fn gain_levels(
                 exp.base += exp.next;
                 exp.next = exp.next * 11 / 10;
 
-                if let Ok(stats) = (&mut combat_stats).try_get(id) {
+                if let Ok(stats) = (&mut combat_stats).get(id) {
                     let hp_gain;
                     let new_attack;
                     let new_defense;
@@ -172,7 +174,11 @@ pub fn gain_levels(
                     stats.defense = new_defense;
 
                     if id == player_id.0 {
-                        msgs.add(format!("{} is now level {}!", &names.get(id).0, exp.level));
+                        msgs.add(format!(
+                            "{} is now level {}!",
+                            &names.get(id).unwrap().0,
+                            exp.level
+                        ));
                     }
                 }
             }

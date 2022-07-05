@@ -31,9 +31,9 @@ version = "1.0"
 features = ["derive"]
 
 [dependencies.shipyard]
-version = "0.4"
+version = "0.6.0-alpha.3"
 default-features = false
-features = ["serde", "std"]
+features = ["proc", "serde1", "std"]
 
 [lib]
 path = "src/lib/lib.rs"

@@ -21,7 +21,7 @@ mod ui;
 mod vision;
 
 use serde::{Deserialize, Serialize};
-use shipyard::World;
+use shipyard::{Unique, World};
 use std::{collections::HashMap, path::PathBuf};
 
 use crate::{
@@ -39,16 +39,16 @@ use crate::{
 };
 use ruggrogue::{RunSettings, TilesetInfo};
 
-#[derive(Deserialize, Serialize)]
+#[derive(Unique, Deserialize, Serialize)]
 pub struct GameSeed(u64);
 
-#[derive(Deserialize, Serialize)]
+#[derive(Unique, Deserialize, Serialize)]
 pub struct TurnCount(u64);
 
-#[derive(Deserialize, Serialize)]
+#[derive(Unique, Deserialize, Serialize)]
 pub struct Wins(u32);
 
-#[derive(Deserialize, Serialize)]
+#[derive(Unique, Deserialize, Serialize)]
 pub struct BaseEquipmentLevel(i32);
 
 #[cfg(target_os = "emscripten")]

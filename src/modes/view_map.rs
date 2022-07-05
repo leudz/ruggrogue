@@ -36,7 +36,7 @@ fn reset_camera(
     player_id: UniqueView<PlayerId>,
     coords: View<Coord>,
 ) {
-    camera.0 = coords.get(player_id.0).0;
+    camera.0 = coords.get(player_id.0).unwrap().0;
 }
 
 /// Show a movable cursor that describes seen and recalled map tiles and any occupying entities.
@@ -46,7 +46,7 @@ impl ViewMapMode {
             chunked_map_grid: ChunkedMapGrid::new(),
             old_msg_frame_size: (0, 0).into(),
             redraw_msg_frame_grid: true,
-            center: world.borrow::<UniqueView<Camera>>().0,
+            center: world.borrow::<UniqueView<Camera>>().unwrap().0,
             range: 80,
         }
     }
@@ -118,11 +118,11 @@ impl ViewMapMode {
                 }
                 GameKey::Home => {
                     let player_pos = {
-                        let player_id = world.borrow::<UniqueView<PlayerId>>();
-                        let coords = world.borrow::<View<Coord>>();
-                        coords.get(player_id.0).0
+                        let player_id = world.borrow::<UniqueView<PlayerId>>().unwrap();
+                        let coords = world.borrow::<View<Coord>>().unwrap();
+                        coords.get(player_id.0).unwrap().0
                     };
-                    let camera = world.borrow::<UniqueView<Camera>>();
+                    let camera = world.borrow::<UniqueView<Camera>>().unwrap();
 
                     move_x = player_pos.x - camera.0.x;
                     move_y = player_pos.y - camera.0.y;
@@ -142,7 +142,7 @@ impl ViewMapMode {
                 let max_x = self.center.x + self.range;
                 let min_y = self.center.y - self.range;
                 let max_y = self.center.y + self.range;
-                let mut camera = world.borrow::<UniqueViewMut<Camera>>();
+                let mut camera = world.borrow::<UniqueViewMut<Camera>>().unwrap();
 
                 // Keep the camera within range of the center.
                 if move_x < 0 && camera.0.x + move_x < min_x {
@@ -203,12 +203,12 @@ impl ViewMapMode {
         self.chunked_map_grid.draw(world, map_grid);
         render::draw_renderables(&self.chunked_map_grid, world, map_grid);
 
-        let camera = world.borrow::<UniqueView<Camera>>();
-        let map = world.borrow::<UniqueView<Map>>();
+        let camera = world.borrow::<UniqueView<Camera>>().unwrap();
+        let map = world.borrow::<UniqueView<Map>>().unwrap();
         let player_pos = {
-            let player_id = world.borrow::<UniqueView<PlayerId>>();
-            let coords = world.borrow::<View<Coord>>();
-            coords.get(player_id.0).0
+            let player_id = world.borrow::<UniqueView<PlayerId>>().unwrap();
+            let coords = world.borrow::<View<Coord>>().unwrap();
+            coords.get(player_id.0).unwrap().0
         };
 
         // Highlight cursor position.

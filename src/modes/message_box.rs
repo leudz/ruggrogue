@@ -39,7 +39,7 @@ impl MessageBoxMode {
     ) {
         let Options {
             font, text_zoom, ..
-        } = *world.borrow::<UniqueView<Options>>();
+        } = *world.borrow::<UniqueView<Options>>().unwrap();
         let new_size = Size {
             w: self.inner_width + 4,
             h: self.msg.len() as u32 + 4,

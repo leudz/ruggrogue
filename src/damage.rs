@@ -1,7 +1,7 @@
 use rand::{Rng, SeedableRng};
 use rand_xoshiro::Xoshiro128PlusPlus as GameRng;
 use shipyard::{
-    AllStoragesViewMut, EntitiesView, EntityId, Get, IntoIter, Shiperator, UniqueView,
+    AllStoragesViewMut, EntitiesView, EntityId, Get, IntoIter, IntoWithId, UniqueView,
     UniqueViewMut, View, ViewMut, World,
 };
 use std::hash::Hasher;
@@ -20,26 +20,26 @@ use crate::{
 };
 
 pub fn melee_attack(world: &World, attacker: EntityId, defender: EntityId) {
-    let mut msgs = world.borrow::<UniqueViewMut<Messages>>();
-    let entities = world.borrow::<EntitiesView>();
-    let asleeps = world.borrow::<View<Asleep>>();
-    let combat_bonuses = world.borrow::<View<CombatBonus>>();
-    let mut combat_stats = world.borrow::<ViewMut<CombatStats>>();
-    let equipments = world.borrow::<View<Equipment>>();
-    let mut hurt_bys = world.borrow::<ViewMut<HurtBy>>();
-    let names = world.borrow::<View<Name>>();
-    let att_name = &names.get(attacker).0;
-    let def_name = &names.get(defender).0;
+    let mut msgs = world.borrow::<UniqueViewMut<Messages>>().unwrap();
+    let entities = world.borrow::<EntitiesView>().unwrap();
+    let asleeps = world.borrow::<View<Asleep>>().unwrap();
+    let combat_bonuses = world.borrow::<View<CombatBonus>>().unwrap();
+    let mut combat_stats = world.borrow::<ViewMut<CombatStats>>().unwrap();
+    let equipments = world.borrow::<View<Equipment>>().unwrap();
+    let mut hurt_bys = world.borrow::<ViewMut<HurtBy>>().unwrap();
+    let names = world.borrow::<View<Name>>().unwrap();
+    let att_name = &names.get(attacker).unwrap().0;
+    let def_name = &names.get(defender).unwrap().0;
     let mut rng = {
-        let coords = world.borrow::<View<Coord>>();
+        let coords = world.borrow::<View<Coord>>().unwrap();
         let mut hasher = WyHash::with_seed(magicnum::MELEE_ATTACK);
-        hasher.write_u64(world.borrow::<UniqueView<GameSeed>>().0);
-        hasher.write_u64(world.borrow::<UniqueView<TurnCount>>().0);
-        if let Ok(attacker_coord) = coords.try_get(attacker) {
+        hasher.write_u64(world.borrow::<UniqueView<GameSeed>>().unwrap().0);
+        hasher.write_u64(world.borrow::<UniqueView<TurnCount>>().unwrap().0);
+        if let Ok(attacker_coord) = coords.get(attacker) {
             hasher.write_i32(attacker_coord.0.x);
             hasher.write_i32(attacker_coord.0.y);
         }
-        if let Ok(defender_coord) = coords.try_get(defender) {
+        if let Ok(defender_coord) = coords.get(defender) {
             hasher.write_i32(defender_coord.0.x);
             hasher.write_i32(defender_coord.0.y);
         }
@@ -51,23 +51,23 @@ pub fn melee_attack(world: &World, attacker: EntityId, defender: EntityId) {
         return;
     }
 
-    let attack_value = combat_stats.get(attacker).attack
-        + equipments.try_get(attacker).map_or(0.0, |equip| {
+    let attack_value = combat_stats.get(attacker).unwrap().attack
+        + equipments.get(attacker).map_or(0.0, |equip| {
             equip
                 .weapon
                 .iter()
                 .chain(equip.armor.iter())
-                .filter_map(|&e| combat_bonuses.try_get(e).ok())
+                .filter_map(|&e| combat_bonuses.get(e).ok())
                 .map(|b| b.attack)
                 .sum()
         });
-    let defense_value = combat_stats.get(defender).defense
-        + equipments.try_get(defender).map_or(0.0, |equip| {
+    let defense_value = combat_stats.get(defender).unwrap().defense
+        + equipments.get(defender).map_or(0.0, |equip| {
             equip
                 .weapon
                 .iter()
                 .chain(equip.armor.iter())
-                .filter_map(|&e| combat_bonuses.try_get(e).ok())
+                .filter_map(|&e| combat_bonuses.get(e).ok())
                 .map(|b| b.defense)
                 .sum()
         });
@@ -99,14 +99,14 @@ pub fn melee_attack(world: &World, attacker: EntityId, defender: EntityId) {
         };
 
     if damage > 0 {
-        let mut tallies = world.borrow::<ViewMut<Tally>>();
+        let mut tallies = world.borrow::<ViewMut<Tally>>().unwrap();
 
-        (&mut combat_stats).get(defender).hp -= damage;
-        entities.add_component(&mut hurt_bys, HurtBy::Someone(attacker), defender);
-        if let Ok(att_tally) = (&mut tallies).try_get(attacker) {
+        (&mut combat_stats).get(defender).unwrap().hp -= damage;
+        entities.add_component(defender, &mut hurt_bys, HurtBy::Someone(attacker));
+        if let Ok(att_tally) = (&mut tallies).get(attacker) {
             att_tally.damage_dealt += damage.max(0) as u64;
         }
-        if let Ok(def_tally) = (&mut tallies).try_get(defender) {
+        if let Ok(def_tally) = (&mut tallies).get(defender) {
             def_tally.damage_taken += damage.max(0) as u64;
         }
         msgs.add(format!(
@@ -143,7 +143,7 @@ pub fn handle_dead_entities(mut all_storages: AllStoragesViewMut) {
 
         for &entity in entities.iter().take(num_entities) {
             all_storages.run(|mut msgs: UniqueViewMut<Messages>, names: View<Name>| {
-                msgs.add(format!("{} dies!", &names.get(entity).0));
+                msgs.add(format!("{} dies!", &names.get(entity).unwrap().0));
             });
 
             all_storages.run(
@@ -151,15 +151,15 @@ pub fn handle_dead_entities(mut all_storages: AllStoragesViewMut) {
                  gives_exps: View<GivesExperience>,
                  hurt_bys: View<HurtBy>,
                  mut tallies: ViewMut<Tally>| {
-                    if let Ok(&HurtBy::Someone(receiver)) = hurt_bys.try_get(entity) {
+                    if let Ok(&HurtBy::Someone(receiver)) = hurt_bys.get(entity) {
                         // Credit kill to whoever last hurt this entity.
-                        if let Ok(receiver_tally) = (&mut tallies).try_get(receiver) {
+                        if let Ok(receiver_tally) = (&mut tallies).get(receiver) {
                             receiver_tally.kills += 1;
                         }
 
                         // Give experience to whoever last hurt this entity.
-                        if let Ok(receiver_exp) = (&mut exps).try_get(receiver) {
-                            if let Ok(gives_exp) = gives_exps.try_get(entity) {
+                        if let Ok(receiver_exp) = (&mut exps).get(receiver) {
+                            if let Ok(gives_exp) = gives_exps.get(entity) {
                                 receiver_exp.exp += gives_exp.0;
                             }
                         }
@@ -167,7 +167,7 @@ pub fn handle_dead_entities(mut all_storages: AllStoragesViewMut) {
                 },
             );
 
-            if entity == all_storages.borrow::<UniqueView<PlayerId>>().0 {
+            if entity == all_storages.borrow::<UniqueView<PlayerId>>().unwrap().0 {
                 // The player has died.
                 all_storages.run(
                     |mut msgs: UniqueViewMut<Messages>,
@@ -190,7 +190,7 @@ pub fn handle_dead_entities(mut all_storages: AllStoragesViewMut) {
                      coords: View<Coord>| {
                         map.remove_entity(
                             entity,
-                            coords.get(entity).0.into(),
+                            coords.get(entity).unwrap().0.into(),
                             blocks_tile.contains(entity),
                         );
                     },

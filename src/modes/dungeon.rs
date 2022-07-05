@@ -52,7 +52,7 @@ fn app_quit_dialog(inputs: &mut InputBuffer) -> (ModeControl, ModeUpdate) {
 }
 
 fn get_player_fov(player_id: UniqueView<PlayerId>, fovs: View<FieldOfView>) -> (Position, Size) {
-    let player_fov = fovs.get(player_id.0);
+    let player_fov = fovs.get(player_id.0).unwrap();
 
     (
         Position {
@@ -67,7 +67,7 @@ fn get_player_fov(player_id: UniqueView<PlayerId>, fovs: View<FieldOfView>) -> (
 }
 
 fn get_player_pos(player_id: UniqueView<PlayerId>, coords: View<Coord>) -> Position {
-    coords.get(player_id.0).0
+    coords.get(player_id.0).unwrap().0
 }
 
 /// The main gameplay mode.  The player can move around and explore the map, fight monsters and
@@ -113,7 +113,7 @@ impl DungeonMode {
         if world.run(player::player_is_alive) {
             let old_player_fov = world.run(get_player_fov);
             let old_player_pos = world.run(get_player_pos);
-            let old_depth = world.borrow::<UniqueView<Map>>().depth;
+            let old_depth = world.borrow::<UniqueView<Map>>().unwrap().depth;
             let time_passed = if let Some(result) = pop_result {
                 match result {
                     ModeResult::AppQuitDialogModeResult(result) => match result {
@@ -167,7 +167,7 @@ impl DungeonMode {
                     },
 
                     ModeResult::InventoryModeResult(result) => {
-                        let player_id = world.borrow::<UniqueView<PlayerId>>().0;
+                        let player_id = world.borrow::<UniqueView<PlayerId>>().unwrap().0;
 
                         match result {
                             InventoryModeResult::AppQuit => return app_quit_dialog(inputs),
@@ -202,7 +202,7 @@ impl DungeonMode {
                     }
 
                     ModeResult::InventoryShortcutModeResult(result) => {
-                        let player_id = world.borrow::<UniqueView<PlayerId>>().0;
+                        let player_id = world.borrow::<UniqueView<PlayerId>>().unwrap().0;
 
                         match result {
                             InventoryShortcutModeResult::AppQuit => return app_quit_dialog(inputs),
@@ -229,7 +229,7 @@ impl DungeonMode {
                     }
 
                     ModeResult::EquipmentShortcutModeResult(result) => {
-                        let player_id = world.borrow::<UniqueView<PlayerId>>().0;
+                        let player_id = world.borrow::<UniqueView<PlayerId>>().unwrap().0;
 
                         match result {
                             EquipmentShortcutModeResult::AppQuit => return app_quit_dialog(inputs),
@@ -347,8 +347,11 @@ impl DungeonMode {
 
                         if world.run(player::player_is_alive) {
                             world.run(damage::clear_hurt_bys);
-                            world.borrow::<UniqueViewMut<TurnCount>>().0 += 1;
-                            world.borrow::<UniqueViewMut<Messages>>().separator();
+                            world.borrow::<UniqueViewMut<TurnCount>>().unwrap().0 += 1;
+                            world
+                                .borrow::<UniqueViewMut<Messages>>()
+                                .unwrap()
+                                .separator();
                         }
                     }
                 }
@@ -362,7 +365,7 @@ impl DungeonMode {
             }
 
             {
-                let new_depth = world.borrow::<UniqueView<Map>>().depth;
+                let new_depth = world.borrow::<UniqueView<Map>>().unwrap().depth;
                 let new_player_pos = world.run(get_player_pos);
 
                 // Redraw all map chunks when changing levels.
@@ -376,7 +379,7 @@ impl DungeonMode {
 
                 // Make the camera follow the player.
                 {
-                    let mut camera = world.borrow::<UniqueViewMut<Camera>>();
+                    let mut camera = world.borrow::<UniqueViewMut<Camera>>().unwrap();
                     camera.0 = new_player_pos;
                 }
             }

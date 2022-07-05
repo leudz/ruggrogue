@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
+use shipyard::Unique;
 use std::collections::VecDeque;
 
-#[derive(Deserialize, Serialize)]
+#[derive(Unique, Deserialize, Serialize)]
 pub struct Messages {
     capacity: u16,
     msg_queue: VecDeque<String>,

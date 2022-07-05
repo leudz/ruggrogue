@@ -51,13 +51,14 @@ impl TargetMode {
 
         let player_pos: (i32, i32) =
             world.run(|player_id: UniqueView<PlayerId>, coords: View<Coord>| {
-                coords.get(player_id.0).0.into()
+                coords.get(player_id.0).unwrap().0.into()
             });
 
         let valid = world.run(|player_id: UniqueView<PlayerId>, fovs: View<FieldOfView>| {
             // Add 0.5 to the range to prevent 'bumps' at the edge of the range circle.
             let max_dist2 = range * (range + 1);
             fovs.get(player_id.0)
+                .unwrap()
                 .iter()
                 .filter(|pos| dist2(*pos, player_pos) <= max_dist2)
                 .collect::<HashSet<_>>()
@@ -69,8 +70,9 @@ impl TargetMode {
             .filter(|(x, y)| {
                 world
                     .borrow::<UniqueView<Map>>()
+                    .unwrap()
                     .iter_entities_at(*x, *y)
-                    .any(|id| world.borrow::<View<Monster>>().contains(id))
+                    .any(|id| world.borrow::<View<Monster>>().unwrap().contains(id))
             })
             .min_by_key(|pos| dist2(**pos, player_pos))
             .copied()
@@ -319,6 +321,7 @@ impl TargetMode {
         let cursor_desc = if self.valid.contains(&self.cursor) {
             world
                 .borrow::<UniqueView<Map>>()
+                .unwrap()
                 .describe_pos(world, self.cursor.0, self.cursor.1, true, false, false)
                 .0
         } else {

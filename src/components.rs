@@ -1,30 +1,30 @@
 use serde::{Deserialize, Serialize};
-use shipyard::EntityId;
+use shipyard::{Component, EntityId};
 
 use crate::{bitgrid::BitGrid, gamesym::GameSym, player::AutoRun};
 use ruggrogue::util::{Color, Position};
 
-#[derive(Deserialize, Serialize)]
+#[derive(Component, Deserialize, Serialize)]
 pub struct AreaOfEffect {
     pub radius: i32,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Component, Deserialize, Serialize)]
 pub struct Asleep {
     pub sleepiness: i32,
     pub last_hp: i32,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Component, Deserialize, Serialize)]
 pub struct BlocksTile;
 
-#[derive(Deserialize, Serialize)]
+#[derive(Component, Deserialize, Serialize)]
 pub struct CombatBonus {
     pub attack: f32,
     pub defense: f32,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Component, Deserialize, Serialize)]
 pub struct CombatStats {
     pub max_hp: i32,
     pub hp: i32,
@@ -32,10 +32,10 @@ pub struct CombatStats {
     pub defense: f32,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Component, Deserialize, Serialize)]
 pub struct Consumable;
 
-#[derive(Deserialize, Serialize)]
+#[derive(Component, Deserialize, Serialize)]
 pub struct Coord(pub Position);
 
 impl Coord {
@@ -44,19 +44,19 @@ impl Coord {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Component, Deserialize, Serialize)]
 pub enum EquipSlot {
     Weapon,
     Armor,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Component, Deserialize, Serialize)]
 pub struct Equipment {
     pub weapon: Option<EntityId>,
     pub armor: Option<EntityId>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Component, Deserialize, Serialize)]
 pub struct Experience {
     pub level: i32,
     pub exp: u64,
@@ -64,7 +64,7 @@ pub struct Experience {
     pub base: u64,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Component, Deserialize, Serialize)]
 pub struct FieldOfView {
     pub tiles: BitGrid,
     pub range: i32,
@@ -124,83 +124,84 @@ impl FieldOfView {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Component, Deserialize, Serialize)]
 pub struct GivesExperience(pub u64);
 
+#[derive(Component)]
 pub enum HurtBy {
     Someone(EntityId),
     Starvation,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Component, Deserialize, Serialize)]
 pub struct InflictsDamage {
     pub damage: i32,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Component, Deserialize, Serialize)]
 pub struct InflictsSleep {
     pub sleepiness: i32,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Component, Debug, Deserialize, Serialize)]
 pub struct Inventory {
     pub items: Vec<EntityId>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Component, Deserialize, Serialize)]
 pub struct Item;
 
-#[derive(Deserialize, Serialize)]
+#[derive(Component, Deserialize, Serialize)]
 pub struct Monster;
 
-#[derive(Deserialize, Serialize)]
+#[derive(Component, Deserialize, Serialize)]
 pub struct Name(pub String);
 
-#[derive(Deserialize, Serialize)]
+#[derive(Component, Deserialize, Serialize)]
 pub struct Nutrition(pub i32);
 
-#[derive(Deserialize, Serialize)]
+#[derive(Component, Deserialize, Serialize)]
 pub struct Player {
     #[serde(skip)]
     pub auto_run: Option<AutoRun>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Component, Deserialize, Serialize)]
 pub struct ProvidesHealing {
     pub heal_amount: i32,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Component, Deserialize, Serialize)]
 pub struct Ranged {
     pub range: i32,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Component, Deserialize, Serialize)]
 pub struct RenderOnFloor;
 
-#[derive(Deserialize, Serialize)]
+#[derive(Component, Deserialize, Serialize)]
 pub struct RenderOnMap;
 
-#[derive(Deserialize, Serialize)]
+#[derive(Component, Deserialize, Serialize)]
 pub struct Renderable {
     pub sym: GameSym,
     pub fg: Color,
     pub bg: Color,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Component, Deserialize, Serialize)]
 pub struct Stomach {
     pub fullness: i32,
     pub max_fullness: i32,
     pub sub_hp: i32,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Component, Deserialize, Serialize)]
 pub struct Tally {
     pub damage_dealt: u64,
     pub damage_taken: u64,
     pub kills: u64,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Component, Deserialize, Serialize)]
 pub struct Victory;

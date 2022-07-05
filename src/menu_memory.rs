@@ -1,7 +1,9 @@
 use std::ops::{Index, IndexMut};
 
 use ruggrogue::util::Position;
+use shipyard::Unique;
 
+#[derive(Unique)]
 pub struct MenuMemory {
     menu: [i32; 7],
     pub pick_up_pos: Position,

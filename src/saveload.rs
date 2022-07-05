@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{Deserializer, Serializer};
 use shipyard::{
-    AllStoragesViewMut, EntitiesView, EntitiesViewMut, EntityId, Get, IntoIter, Shiperator,
-    UniqueView, UniqueViewMut, View, ViewMut, World,
+    track::Tracking, AllStoragesViewMut, Component, EntitiesView, EntitiesViewMut, EntityId, Get,
+    IntoIter, IntoWithId, Unique, UniqueView, UniqueViewMut, View, ViewMut, World,
 };
 use std::{
     collections::{hash_map::HashMap, hash_set::HashSet},
@@ -72,14 +72,20 @@ pub fn delete_save_file() {
 }
 
 /// Save a unique as an asterisk, a tab, its type, a tab and its serialized data in a single line.
-fn save_named_unique<W, T>(world: &World, mut writer: &mut W, name: &str) -> Result<(), BoxedError>
+fn save_named_unique<W, Track, T>(
+    world: &World,
+    mut writer: &mut W,
+    name: &str,
+) -> Result<(), BoxedError>
 where
-    T: 'static + Send + Sync + Serialize,
+    Track: Tracking + Send + Sync,
+    T: 'static + Send + Sync + Serialize + Unique<Tracking = Track>,
     W: Write,
 {
     write!(writer, "*\t{}\t", name)?;
     world
         .borrow::<UniqueView<T>>()
+        .unwrap()
         .serialize(&mut Serializer::new(&mut writer))?;
     writer.write_all(b"\n")?;
     Ok(())
@@ -87,18 +93,23 @@ where
 
 macro_rules! save_unique {
     ($type:ty, $world:expr, $writer:expr) => {
-        save_named_unique::<_, $type>($world, $writer, stringify!($type))
+        save_named_unique::<_, _, $type>($world, $writer, stringify!($type))
     };
 }
 
 /// Save components of a storage as an entity ID, a tab, its type, a tab and its serialized data,
 /// one per line.
-fn save_named_storage<W, T>(world: &World, mut writer: &mut W, name: &str) -> Result<(), BoxedError>
+fn save_named_storage<W, Track, T>(
+    world: &World,
+    mut writer: &mut W,
+    name: &str,
+) -> Result<(), BoxedError>
 where
-    T: 'static + Send + Sync + Serialize,
+    Track: Tracking + Send + Sync,
+    T: 'static + Send + Sync + Serialize + Component<Tracking = Track>,
     W: Write,
 {
-    for (id, component) in world.borrow::<View<T>>().iter().with_id() {
+    for (id, component) in world.borrow::<View<T>>().unwrap().iter().with_id() {
         id.serialize(&mut Serializer::new(&mut writer))?;
         write!(writer, "\t{}\t", name)?;
         component.serialize(&mut Serializer::new(&mut writer))?;
@@ -110,7 +121,7 @@ where
 
 macro_rules! save_storage {
     ($type:ty, $world:expr, $writer:expr) => {
-        save_named_storage::<_, $type>($world, $writer, stringify!($type))
+        save_named_storage::<_, _, $type>($world, $writer, stringify!($type))
     };
 }
 
@@ -220,7 +231,7 @@ macro_rules! deserialize_unique {
 /// Returns `Ok(true)` if the component was successfully parsed, `Ok(false)` if the data wasn't
 /// parsed but might be something else, and `Err` if the data was parsed as a duplicate of a
 /// component that the entity already had.
-fn deserialize_named_component<'a, T>(
+fn deserialize_named_component<'a, Track, T>(
     world: &World,
     maybe_data: &'a str,
     line_num: usize,
@@ -228,7 +239,8 @@ fn deserialize_named_component<'a, T>(
     name: &'static str,
 ) -> Result<bool, LoadError>
 where
-    T: 'static + Send + Sync + Deserialize<'a>,
+    Track: Tracking + Send + Sync,
+    T: 'static + Send + Sync + Deserialize<'a> + Component<Tracking = Track>,
 {
     let maybe_data = if let Some(unprefixed) = maybe_data
         .strip_prefix(name)
@@ -242,11 +254,11 @@ where
 
     if let Ok(parsed) = T::deserialize(&mut ds) {
         if ds.end().is_ok() {
-            let entities = world.borrow::<EntitiesView>();
-            let mut storage = world.borrow::<ViewMut<T>>();
+            let entities = world.borrow::<EntitiesView>().unwrap();
+            let mut storage = world.borrow::<ViewMut<T>>().unwrap();
 
             if !storage.contains(id) {
-                entities.add_component(&mut storage, parsed, id);
+                entities.add_component(id, &mut storage, parsed);
                 Ok(true)
             } else {
                 Err(LoadError::DuplicateComponent(line_num, name))
@@ -261,7 +273,13 @@ where
 
 macro_rules! deserialize_component {
     ($type:ty, $world:expr, $maybe_data:expr, $line_num:expr, $id:expr) => {
-        deserialize_named_component::<$type>($world, $maybe_data, $line_num, $id, stringify!($type))
+        deserialize_named_component::<_, $type>(
+            $world,
+            $maybe_data,
+            $line_num,
+            $id,
+            stringify!($type),
+        )
     };
 }
 
@@ -329,7 +347,10 @@ fn load_save_file(world: &World, despawn_ids: &mut Vec<EntityId>) -> Result<(), 
                 *id
             } else {
                 // Add new entity to despawn_ids and old_to_new_ids.
-                let new_id = world.borrow::<EntitiesViewMut>().add_entity((), ());
+                let new_id = world
+                    .borrow::<EntitiesViewMut>()
+                    .unwrap()
+                    .add_entity((), ());
                 despawn_ids.push(new_id);
                 old_to_new_ids.insert(save_id, new_id);
                 new_id
@@ -406,7 +427,7 @@ fn load_save_file(world: &World, despawn_ids: &mut Vec<EntityId>) -> Result<(), 
         .collect::<HashSet<EntityId>>();
 
     // Replace entity IDs in equipment.
-    for (_, equipment) in IntoIter::iter(&mut world.borrow::<ViewMut<Equipment>>())
+    for (_, equipment) in IntoIter::iter(&mut world.borrow::<ViewMut<Equipment>>().unwrap())
         .with_id()
         .filter(|(id, _)| new_ids.contains(id))
     {
@@ -425,7 +446,7 @@ fn load_save_file(world: &World, despawn_ids: &mut Vec<EntityId>) -> Result<(), 
     }
 
     // Replace entity IDs in inventories.
-    for (_, inventory) in IntoIter::iter(&mut world.borrow::<ViewMut<Inventory>>())
+    for (_, inventory) in IntoIter::iter(&mut world.borrow::<ViewMut<Inventory>>().unwrap())
         .with_id()
         .filter(|(id, _)| new_ids.contains(id))
     {
@@ -438,28 +459,35 @@ fn load_save_file(world: &World, despawn_ids: &mut Vec<EntityId>) -> Result<(), 
     }
 
     // Place all Coord-carrying entities on the map.
-    for (id, coord) in IntoIter::iter(&world.borrow::<View<Coord>>()).with_id() {
-        let blocks_tile = world.borrow::<View<BlocksTile>>().try_get(id).is_ok();
+    for (id, coord) in IntoIter::iter(&world.borrow::<View<Coord>>().unwrap()).with_id() {
+        let blocks_tile = world.borrow::<View<BlocksTile>>().unwrap().get(id).is_ok();
         map.place_entity(id, coord.0.into(), blocks_tile);
     }
 
     // Commit loaded entities and mark old existing entities for despawning.
     despawn_ids.clear();
-    despawn_ids.push(world.borrow::<UniqueView<Difficulty>>().id);
-    despawn_ids.push(world.borrow::<UniqueView<PlayerId>>().0);
+    despawn_ids.push(world.borrow::<UniqueView<Difficulty>>().unwrap().id);
+    despawn_ids.push(world.borrow::<UniqueView<PlayerId>>().unwrap().0);
 
     // Commit uniques.
-    world.borrow::<UniqueViewMut<GameSeed>>().0 = game_seed.0;
-    world.borrow::<UniqueViewMut<TurnCount>>().0 = turn_count.0;
-    world.borrow::<UniqueViewMut<Wins>>().0 = wins.0;
-    world.borrow::<UniqueViewMut<BaseEquipmentLevel>>().0 = base_equipment_level.0;
+    world.borrow::<UniqueViewMut<GameSeed>>().unwrap().0 = game_seed.0;
+    world.borrow::<UniqueViewMut<TurnCount>>().unwrap().0 = turn_count.0;
+    world.borrow::<UniqueViewMut<Wins>>().unwrap().0 = wins.0;
+    world
+        .borrow::<UniqueViewMut<BaseEquipmentLevel>>()
+        .unwrap()
+        .0 = base_equipment_level.0;
     world
         .borrow::<UniqueViewMut<Difficulty>>()
+        .unwrap()
         .replace(difficulty);
-    world.borrow::<UniqueViewMut<Messages>>().replace(messages);
-    world.borrow::<UniqueViewMut<PlayerAlive>>().0 = player_alive.0;
-    world.borrow::<UniqueViewMut<PlayerId>>().0 = player_id.0;
-    world.borrow::<UniqueViewMut<Map>>().replace(map);
+    world
+        .borrow::<UniqueViewMut<Messages>>()
+        .unwrap()
+        .replace(messages);
+    world.borrow::<UniqueViewMut<PlayerAlive>>().unwrap().0 = player_alive.0;
+    world.borrow::<UniqueViewMut<PlayerId>>().unwrap().0 = player_id.0;
+    world.borrow::<UniqueViewMut<Map>>().unwrap().replace(map);
 
     Ok(())
 }
@@ -471,7 +499,7 @@ pub fn load_game(world: &World) -> Result<(), BoxedError> {
     let result = load_save_file(world, &mut delete_ids);
 
     for id in delete_ids {
-        spawn::despawn_entity(&mut world.borrow::<AllStoragesViewMut>(), id);
+        spawn::despawn_entity(&mut world.borrow::<AllStoragesViewMut>().unwrap(), id);
     }
 
     result
