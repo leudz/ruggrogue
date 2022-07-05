@@ -79,17 +79,16 @@ impl ChunkedMapGrid {
     /// and size on screen.
     pub fn prepare_grid<Y: Symbol>(
         &mut self,
-        world: &World,
+        &Options {
+            tileset: map_tileset_index,
+            map_zoom,
+            ..
+        }: &Options,
         grid: &mut TileGrid<Y>,
         tilesets: &[Tileset<Y>],
         pos: Position,
         size: Size,
     ) {
-        let Options {
-            tileset: map_tileset_index,
-            map_zoom,
-            ..
-        } = *world.borrow::<UniqueView<Options>>().unwrap();
         let map_tileset = &tilesets
             .get(map_tileset_index as usize)
             .unwrap_or(&tilesets[0]);

@@ -42,13 +42,14 @@ pub struct PickUpMenuMode {
 
 /// Show a list of items that player is on top of and let them choose one to pick up.
 impl PickUpMenuMode {
-    pub fn new(world: &World) -> Self {
-        let map = world.borrow::<UniqueView<Map>>().unwrap();
-        let mut menu_memory = world.borrow::<UniqueViewMut<MenuMemory>>().unwrap();
-        let player_id = world.borrow::<UniqueView<PlayerId>>().unwrap();
-        let coords = world.borrow::<View<Coord>>().unwrap();
-        let items = world.borrow::<View<Item>>().unwrap();
-        let names = world.borrow::<View<Name>>().unwrap();
+    pub fn new(
+        map: UniqueView<Map>,
+        mut menu_memory: UniqueViewMut<MenuMemory>,
+        player_id: UniqueView<PlayerId>,
+        coords: View<Coord>,
+        items: View<Item>,
+        names: View<Name>,
+    ) -> Self {
         let player_coord = coords.get(player_id.0).unwrap();
         let items = map
             .iter_entities_at(player_coord.0.x, player_coord.0.y)

@@ -45,7 +45,7 @@ pub fn enqueue_monster_turns(
 fn do_turn_for_one_monster(world: &World, monster: EntityId) {
     if item::is_asleep(world, monster) {
         item::handle_sleep_turn(world, monster);
-    } else if player::can_see_player(world, monster) {
+    } else if world.run_with_data(player::can_see_player, monster) {
         let mut map = world.borrow::<UniqueViewMut<Map>>().unwrap();
         let player_id = world.borrow::<UniqueView<PlayerId>>().unwrap();
         let (player_pos, pos): ((i32, i32), (i32, i32)) = {
@@ -58,7 +58,7 @@ fn do_turn_for_one_monster(world: &World, monster: EntityId) {
 
         if let Some(step) = ruggrogue::find_path(&*map, pos, player_pos, 4, true).nth(1) {
             if step == player_pos {
-                damage::melee_attack(world, monster, player_id.0);
+                world.run_with_data(damage::melee_attack, (monster, player_id.0));
             } else {
                 let blocks = world.borrow::<View<BlocksTile>>().unwrap();
                 let mut coords = world.borrow::<ViewMut<Coord>>().unwrap();

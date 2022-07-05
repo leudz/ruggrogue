@@ -170,7 +170,7 @@ pub fn new_game_setup(world: &World, new_game_plus: bool) {
     }
 
     if let Some(victory_pos) = world.run(map::generate_rooms_and_corridors) {
-        spawn::spawn_present(world, victory_pos);
+        world.run_with_data(spawn::spawn_present, victory_pos);
     }
     world.run(player::add_coords_to_players);
     world.run(map::place_player_in_first_room);

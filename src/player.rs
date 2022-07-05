@@ -76,11 +76,12 @@ pub fn player_sees_foes(
         .any(|(x, y)| map.iter_entities_at(x, y).any(|id| monsters.contains(id)))
 }
 
-pub fn can_see_player(world: &World, who: EntityId) -> bool {
-    let (player_id, coords, fovs) = world
-        .borrow::<(UniqueView<PlayerId>, View<Coord>, View<FieldOfView>)>()
-        .unwrap();
-
+pub fn can_see_player(
+    who: EntityId,
+    player_id: UniqueView<PlayerId>,
+    coords: View<Coord>,
+    fovs: View<FieldOfView>,
+) -> bool {
     if let Ok(fov) = fovs.get(who) {
         let player_coord = coords.get(player_id.0).unwrap();
 
@@ -491,7 +492,7 @@ fn auto_run_next_step(world: &World) -> Option<(i32, i32)> {
 
                 // Rest while player can regenerate hit points.
                 if matches!(
-                    hunger::can_regen(world, player_id.0),
+                    world.run_with_data(hunger::can_regen, player_id.0),
                     CanRegenResult::CanRegen
                 ) {
                     Some((0, 0))
@@ -578,7 +579,7 @@ pub fn try_move_player(world: &World, dx: i32, dy: i32, start_run: bool) -> Play
     );
 
     for (attacker, defender) in melee_queue {
-        damage::melee_attack(world, attacker, defender);
+        world.run_with_data(damage::melee_attack, (attacker, defender));
     }
 
     if start_run && moved {
@@ -619,7 +620,7 @@ fn wait_player(world: &World, rest_in_place: bool) -> PlayerInputResult {
     let (player_id, mut players) = world
         .borrow::<(UniqueView<PlayerId>, ViewMut<Player>)>()
         .unwrap();
-    let player_can_regen = hunger::can_regen(world, player_id.0);
+    let player_can_regen = world.run_with_data(hunger::can_regen, player_id.0);
     let mut msgs = world.borrow::<UniqueViewMut<Messages>>().unwrap();
 
     if rest_in_place {
@@ -699,7 +700,7 @@ pub fn player_do_descend(world: &World) {
         map.depth += 1;
     });
     if let Some(victory_pos) = world.run(map::generate_rooms_and_corridors) {
-        spawn::spawn_present(world, victory_pos);
+        world.run_with_data(spawn::spawn_present, victory_pos);
     }
     world.run(map::place_player_in_first_room);
 
@@ -749,7 +750,7 @@ pub fn player_drop_item(world: &World, item_id: EntityId) {
         world.run(|coords: View<Coord>| coords.get(player_id).unwrap().0.into());
 
     item::remove_item_from_inventory(world, player_id, item_id);
-    item::add_item_to_map(world, item_id, player_pos);
+    world.run_with_data(item::add_item_to_map, (item_id, player_pos));
     world.run(|mut msgs: UniqueViewMut<Messages>, names: View<Name>| {
         msgs.add(format!(
             "{} drops {}.",

@@ -291,14 +291,14 @@ impl DungeonMode {
                     PlayerInputResult::ShowPickUpMenu => {
                         inputs.clear_input();
                         return (
-                            ModeControl::Push(PickUpMenuMode::new(world).into()),
+                            ModeControl::Push(world.run(PickUpMenuMode::new).into()),
                             ModeUpdate::Immediate,
                         );
                     }
                     PlayerInputResult::ShowInventory => {
                         inputs.clear_input();
                         return (
-                            ModeControl::Push(InventoryMode::new(world).into()),
+                            ModeControl::Push(world.run(InventoryMode::new).into()),
                             ModeUpdate::Immediate,
                         );
                     }

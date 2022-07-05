@@ -1,6 +1,5 @@
 use shipyard::{
     EntitiesView, EntityId, Get, IntoIter, IntoWithId, UniqueView, UniqueViewMut, View, ViewMut,
-    World,
 };
 
 use crate::{
@@ -80,10 +79,11 @@ impl From<i32> for HungerState {
 
 /// Checks if the given entity can or cannot regenerate with a specific reason.
 #[allow(clippy::question_mark)]
-pub fn can_regen(world: &World, entity_id: EntityId) -> CanRegenResult {
-    let (combat_stats, stomachs) = world
-        .borrow::<(View<CombatStats>, View<Stomach>)>()
-        .unwrap();
+pub fn can_regen(
+    entity_id: EntityId,
+    combat_stats: View<CombatStats>,
+    stomachs: View<Stomach>,
+) -> CanRegenResult {
     let stats = if let Ok(stats) = combat_stats.get(entity_id) {
         stats
     } else {

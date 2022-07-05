@@ -172,15 +172,17 @@ pub fn spawn_player(
     id
 }
 
-pub fn spawn_present(world: &World, pos: (i32, i32)) {
-    let mut map = world.borrow::<UniqueViewMut<Map>>().unwrap();
-    let mut entities = world.borrow::<EntitiesViewMut>().unwrap();
-    let mut coords = world.borrow::<ViewMut<Coord>>().unwrap();
-    let mut items = world.borrow::<ViewMut<Item>>().unwrap();
-    let mut names = world.borrow::<ViewMut<Name>>().unwrap();
-    let mut render_on_floors = world.borrow::<ViewMut<RenderOnFloor>>().unwrap();
-    let mut renderables = world.borrow::<ViewMut<Renderable>>().unwrap();
-    let mut victories = world.borrow::<ViewMut<Victory>>().unwrap();
+pub fn spawn_present(
+    pos: (i32, i32),
+    mut map: UniqueViewMut<Map>,
+    mut entities: EntitiesViewMut,
+    mut coords: ViewMut<Coord>,
+    mut items: ViewMut<Item>,
+    mut names: ViewMut<Name>,
+    mut render_on_floors: ViewMut<RenderOnFloor>,
+    mut renderables: ViewMut<Renderable>,
+    mut victories: ViewMut<Victory>,
+) {
     let present_id = entities.add_entity(
         (
             &mut items,
@@ -207,45 +209,47 @@ pub fn spawn_present(world: &World, pos: (i32, i32)) {
     map.place_entity(present_id, pos, false);
 }
 
-fn spawn_item(world: &World, pos: (i32, i32), name: String, sym: GameSym, fg: Color) -> EntityId {
-    world.run(
-        |mut map: UniqueViewMut<Map>,
-         mut entities: EntitiesViewMut,
-         mut coords: ViewMut<Coord>,
-         mut items: ViewMut<Item>,
-         mut names: ViewMut<Name>,
-         mut render_on_floors: ViewMut<RenderOnFloor>,
-         mut renderables: ViewMut<Renderable>| {
-            let item_id = entities.add_entity(
-                (
-                    &mut items,
-                    &mut coords,
-                    &mut names,
-                    &mut render_on_floors,
-                    &mut renderables,
-                ),
-                (
-                    Item {},
-                    Coord(pos.into()),
-                    Name(name),
-                    RenderOnFloor {},
-                    Renderable {
-                        sym,
-                        fg,
-                        bg: Color::BLACK,
-                    },
-                ),
-            );
+fn spawn_item(
+    (pos, name, sym, fg): ((i32, i32), String, GameSym, Color),
+    mut map: UniqueViewMut<Map>,
+    mut entities: EntitiesViewMut,
+    mut coords: ViewMut<Coord>,
+    mut items: ViewMut<Item>,
+    mut names: ViewMut<Name>,
+    mut render_on_floors: ViewMut<RenderOnFloor>,
+    mut renderables: ViewMut<Renderable>,
+) -> EntityId {
+    let item_id = entities.add_entity(
+        (
+            &mut items,
+            &mut coords,
+            &mut names,
+            &mut render_on_floors,
+            &mut renderables,
+        ),
+        (
+            Item {},
+            Coord(pos.into()),
+            Name(name),
+            RenderOnFloor {},
+            Renderable {
+                sym,
+                fg,
+                bg: Color::BLACK,
+            },
+        ),
+    );
 
-            map.place_entity(item_id, pos, false);
+    map.place_entity(item_id, pos, false);
 
-            item_id
-        },
-    )
+    item_id
 }
 
 fn spawn_ration(world: &World, pos: (i32, i32)) {
-    let item_id = spawn_item(world, pos, "Ration".into(), GameSym::Ration, Color::BROWN);
+    let item_id = world.run_with_data(
+        spawn_item,
+        (pos, "Ration".into(), GameSym::Ration, Color::BROWN),
+    );
     let (entities, mut consumables, mut nutritions) = world
         .borrow::<(EntitiesView, ViewMut<Consumable>, ViewMut<Nutrition>)>()
         .unwrap();
@@ -258,12 +262,14 @@ fn spawn_ration(world: &World, pos: (i32, i32)) {
 }
 
 fn spawn_health_potion(world: &World, pos: (i32, i32)) {
-    let item_id = spawn_item(
-        world,
-        pos,
-        "Health Potion".into(),
-        GameSym::HealthPotion,
-        Color::MAGENTA,
+    let item_id = world.run_with_data(
+        spawn_item,
+        (
+            pos,
+            "Health Potion".into(),
+            GameSym::HealthPotion,
+            Color::MAGENTA,
+        ),
     );
     let (entities, mut consumables, mut provides_healings) = world
         .borrow::<(EntitiesView, ViewMut<Consumable>, ViewMut<ProvidesHealing>)>()
@@ -277,12 +283,14 @@ fn spawn_health_potion(world: &World, pos: (i32, i32)) {
 }
 
 fn spawn_magic_missile_scroll(world: &World, pos: (i32, i32)) {
-    let item_id = spawn_item(
-        world,
-        pos,
-        "Magic Missile Scroll".into(),
-        GameSym::MagicMissileScroll,
-        Color::CYAN,
+    let item_id = world.run_with_data(
+        spawn_item,
+        (
+            pos,
+            "Magic Missile Scroll".into(),
+            GameSym::MagicMissileScroll,
+            Color::CYAN,
+        ),
     );
     let (entities, mut consumables, mut inflicts_damages, mut rangeds) = world
         .borrow::<(
@@ -305,12 +313,14 @@ fn spawn_magic_missile_scroll(world: &World, pos: (i32, i32)) {
 }
 
 fn spawn_fireball_scroll(world: &World, pos: (i32, i32)) {
-    let item_id = spawn_item(
-        world,
-        pos,
-        "Fireball Scroll".into(),
-        GameSym::FireballScroll,
-        Color::ORANGE,
+    let item_id = world.run_with_data(
+        spawn_item,
+        (
+            pos,
+            "Fireball Scroll".into(),
+            GameSym::FireballScroll,
+            Color::ORANGE,
+        ),
     );
     let (entities, mut aoes, mut consumables, mut inflicts_damages, mut rangeds) = world
         .borrow::<(
@@ -340,12 +350,14 @@ fn spawn_fireball_scroll(world: &World, pos: (i32, i32)) {
 }
 
 fn spawn_sleep_scroll(world: &World, pos: (i32, i32)) {
-    let item_id = spawn_item(
-        world,
-        pos,
-        "Sleep Scroll".into(),
-        GameSym::SleepScroll,
-        Color::PINK,
+    let item_id = world.run_with_data(
+        spawn_item,
+        (
+            pos,
+            "Sleep Scroll".into(),
+            GameSym::SleepScroll,
+            Color::PINK,
+        ),
     );
     let (entities, mut aoes, mut consumables, mut inflicts_sleeps, mut rangeds) = world
         .borrow::<(
@@ -385,12 +397,14 @@ fn spawn_weapon<R: Rng>(world: &World, rng: &mut R, pos: (i32, i32), level: f32,
     let (sym, name, rgb) = WEAPONS[rescale_level(level, WEAPONS.len().saturating_sub(1), rng)];
     let level = experience::f32_round_random(level, rng);
     let base_equipment_level = world.borrow::<UniqueView<BaseEquipmentLevel>>().unwrap().0;
-    let item_id = spawn_item(
-        world,
-        pos,
-        format!("{:+} {}", level + bonus + base_equipment_level, name),
-        sym,
-        rgb.into(),
+    let item_id = world.run_with_data(
+        spawn_item,
+        (
+            pos,
+            format!("{:+} {}", level + bonus + base_equipment_level, name),
+            sym,
+            rgb.into(),
+        ),
     );
     let (entities, mut combat_bonuses, mut equip_slots) = world
         .borrow::<(EntitiesView, ViewMut<CombatBonus>, ViewMut<EquipSlot>)>()
@@ -413,12 +427,14 @@ fn spawn_armor<R: Rng>(world: &World, rng: &mut R, pos: (i32, i32), level: f32, 
     let (sym, name, rgb) = ARMORS[rescale_level(level, ARMORS.len().saturating_sub(1), rng)];
     let level = experience::f32_round_random(level, rng);
     let base_equipment_level = world.borrow::<UniqueView<BaseEquipmentLevel>>().unwrap().0;
-    let item_id = spawn_item(
-        world,
-        pos,
-        format!("{:+} {}", level + bonus + base_equipment_level, name),
-        sym,
-        rgb.into(),
+    let item_id = world.run_with_data(
+        spawn_item,
+        (
+            pos,
+            format!("{:+} {}", level + bonus + base_equipment_level, name),
+            sym,
+            rgb.into(),
+        ),
     );
     let (entities, mut combat_bonuses, mut equip_slots) = world
         .borrow::<(EntitiesView, ViewMut<CombatBonus>, ViewMut<EquipSlot>)>()

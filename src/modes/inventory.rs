@@ -49,10 +49,12 @@ pub struct InventoryMode {
 
 /// Show a screen with items carried by the player, and allow them to be manipulated.
 impl InventoryMode {
-    pub fn new(world: &World) -> Self {
-        let player_id = world.borrow::<UniqueView<PlayerId>>().unwrap();
-        let inventories = world.borrow::<View<Inventory>>().unwrap();
-        let names = world.borrow::<View<Name>>().unwrap();
+    pub fn new(
+        menu_memory: UniqueView<MenuMemory>,
+        player_id: UniqueView<PlayerId>,
+        inventories: View<Inventory>,
+        names: View<Name>,
+    ) -> Self {
         let player_inventory = inventories.get(player_id.0).unwrap();
         let inv_min_width = player_inventory
             .items
@@ -60,8 +62,7 @@ impl InventoryMode {
             .map(|it| names.get(*it).unwrap().0.len() + 2)
             .max()
             .unwrap_or(0);
-        let inv_selection = world.borrow::<UniqueView<MenuMemory>>().unwrap()
-            [MenuMemory::INVENTORY]
+        let inv_selection = menu_memory[MenuMemory::INVENTORY]
             .min(player_inventory.items.len().saturating_sub(1) as i32);
 
         Self {

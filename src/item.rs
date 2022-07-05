@@ -16,16 +16,13 @@ use ruggrogue::FovShape;
 #[derive(Unique)]
 pub struct PickUpHint(pub bool);
 
-pub fn add_item_to_map(world: &World, item_id: EntityId, pos: (i32, i32)) {
-    let (mut map, entities, mut coords, mut render_on_floors) = world
-        .borrow::<(
-            UniqueViewMut<Map>,
-            EntitiesView,
-            ViewMut<Coord>,
-            ViewMut<RenderOnFloor>,
-        )>()
-        .unwrap();
-
+pub fn add_item_to_map(
+    (item_id, pos): (EntityId, (i32, i32)),
+    mut map: UniqueViewMut<Map>,
+    entities: EntitiesView,
+    mut coords: ViewMut<Coord>,
+    mut render_on_floors: ViewMut<RenderOnFloor>,
+) {
     entities.add_component(
         item_id,
         (&mut coords, &mut render_on_floors),
@@ -104,7 +101,7 @@ pub fn drop_equipment(world: &World, dropper_id: EntityId, item_id: EntityId) {
     };
 
     unequip_item(world, dropper_id, item_id);
-    add_item_to_map(world, item_id, dropper_pos);
+    world.run_with_data(add_item_to_map, (item_id, dropper_pos));
 
     let mut msgs = world.borrow::<UniqueViewMut<Messages>>().unwrap();
     let names = world.borrow::<View<Name>>().unwrap();
@@ -451,7 +448,7 @@ pub fn handle_sleep_turn(world: &World, who: EntityId) {
 
         asleep.sleepiness -= 1;
         if (who == player_id.0 && world.run(player::player_sees_foes))
-            || player::can_see_player(world, who)
+            || world.run_with_data(player::can_see_player, who)
         {
             asleep.sleepiness -= 1;
         }

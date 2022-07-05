@@ -310,12 +310,13 @@ pub fn prepare_main_grids<Y: Symbol>(
     tilesets: &[Tileset<Y>],
     window_size: Size,
 ) {
+    let options = world.borrow::<UniqueView<Options>>().unwrap();
     let Options {
         tileset: map_tileset_index,
         font: ui_tileset_index,
         text_zoom,
         ..
-    } = *world.borrow::<UniqueView<Options>>().unwrap();
+    } = *options;
     let ui_tileset = &tilesets
         .get(ui_tileset_index as usize)
         .unwrap_or(&tilesets[0]);
@@ -383,7 +384,7 @@ pub fn prepare_main_grids<Y: Symbol>(
     }
 
     chunked_map_grid.prepare_grid(
-        world,
+        &options,
         &mut grids[MAP_GRID],
         tilesets,
         Position { x: 0, y: 0 },

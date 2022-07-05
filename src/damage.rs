@@ -2,7 +2,7 @@ use rand::{Rng, SeedableRng};
 use rand_xoshiro::Xoshiro128PlusPlus as GameRng;
 use shipyard::{
     AllStoragesViewMut, EntitiesView, EntityId, Get, IntoIter, IntoWithId, UniqueView,
-    UniqueViewMut, View, ViewMut, World,
+    UniqueViewMut, View, ViewMut,
 };
 use std::hash::Hasher;
 use wyhash::WyHash;
@@ -19,22 +19,29 @@ use crate::{
     saveload, spawn, GameSeed, TurnCount,
 };
 
-pub fn melee_attack(world: &World, attacker: EntityId, defender: EntityId) {
-    let mut msgs = world.borrow::<UniqueViewMut<Messages>>().unwrap();
-    let entities = world.borrow::<EntitiesView>().unwrap();
-    let asleeps = world.borrow::<View<Asleep>>().unwrap();
-    let combat_bonuses = world.borrow::<View<CombatBonus>>().unwrap();
-    let mut combat_stats = world.borrow::<ViewMut<CombatStats>>().unwrap();
-    let equipments = world.borrow::<View<Equipment>>().unwrap();
-    let mut hurt_bys = world.borrow::<ViewMut<HurtBy>>().unwrap();
-    let names = world.borrow::<View<Name>>().unwrap();
+pub fn melee_attack(
+    (attacker, defender): (EntityId, EntityId),
+    entities: EntitiesView,
+    mut msgs: UniqueViewMut<Messages>,
+    game_seed: UniqueView<GameSeed>,
+    turn_count: UniqueView<TurnCount>,
+    mut combat_stats: ViewMut<CombatStats>,
+    mut hurt_bys: ViewMut<HurtBy>,
+    mut tallies: ViewMut<Tally>,
+    (asleeps, combat_bonuses, equipments, names, coords): (
+        View<Asleep>,
+        View<CombatBonus>,
+        View<Equipment>,
+        View<Name>,
+        View<Coord>,
+    ),
+) {
     let att_name = &names.get(attacker).unwrap().0;
     let def_name = &names.get(defender).unwrap().0;
     let mut rng = {
-        let coords = world.borrow::<View<Coord>>().unwrap();
         let mut hasher = WyHash::with_seed(magicnum::MELEE_ATTACK);
-        hasher.write_u64(world.borrow::<UniqueView<GameSeed>>().unwrap().0);
-        hasher.write_u64(world.borrow::<UniqueView<TurnCount>>().unwrap().0);
+        hasher.write_u64(game_seed.0);
+        hasher.write_u64(turn_count.0);
         if let Ok(attacker_coord) = coords.get(attacker) {
             hasher.write_i32(attacker_coord.0.x);
             hasher.write_i32(attacker_coord.0.y);
@@ -99,8 +106,6 @@ pub fn melee_attack(world: &World, attacker: EntityId, defender: EntityId) {
         };
 
     if damage > 0 {
-        let mut tallies = world.borrow::<ViewMut<Tally>>().unwrap();
-
         (&mut combat_stats).get(defender).unwrap().hp -= damage;
         entities.add_component(defender, &mut hurt_bys, HurtBy::Someone(attacker));
         if let Ok(att_tally) = (&mut tallies).get(attacker) {
